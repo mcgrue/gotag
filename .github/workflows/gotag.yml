@@ -1,0 +1,86 @@
+name: Go Build and Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        go-version: ['1.21', '1.22']
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ matrix.go-version }}
+        cache: true
+
+    - name: Install Protoc
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
+        protoc --version
+
+    - name: Install Protoc (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install protobuf
+        protoc --version
+
+    - name: Install protoc-gen-go
+      run: |
+        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        working-directory: src
+
+    - name: Compile Protobufs
+      working-directory: ./src
+      run: |
+        protoc --go_out=. --go_opt=paths=source_relative \
+          --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+          protos/tagger/tagger.proto
+        protoc --go_out=. --go_opt=paths=source_relative \
+          --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+          protos/helloworld/helloworld.proto
+
+    - name: Build
+      working-directory: ./src
+      run: go build -v ./...
+
+    - name: Test
+      working-directory: ./src
+      run: go test -v -race -cover ./... -coverprofile=coverage.txt
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./src/coverage.txt
+        flags: unittests
+        fail_ci_if_error: true
+
+    - name: Vet
+      working-directory: ./src
+      run: go vet ./...
+
+    - name: Format Check
+      working-directory: ./src
+      run: |
+        if [ "$(gofmt -l . | wc -l)" -gt 0 ]; then
+          echo "The following files are not formatted correctly:"
+          gofmt -l .
+          exit 1
+        fi
