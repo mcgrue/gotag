@@ -55,6 +55,10 @@ func (s *server) TagText(_ context.Context, in *pb.UnstructuredText) (*pb.TagRep
 	reply := &pb.TagReply{
 		Tags: selectedTags,
 	}
+
+	// set reply to an empty array
+	reply.Tags = []string{}
+
 	return &pb.TagReply{Tags: reply.Tags}, nil
 }
 
