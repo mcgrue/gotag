@@ -22,19 +22,6 @@ var (
 	port = flag.Int("port", 50051, "The server port")
 )
 
-var randomWords = [10]string{
-	"cat",
-	"sun",
-	"blue",
-	"jump",
-	"quick",
-	"fox",
-	"lazy",
-	"dog",
-	"moon",
-	"tree",
-}
-
 // server is used to implement helloworld.GreeterServer.
 type server struct {
 	pb.TaggerServer
