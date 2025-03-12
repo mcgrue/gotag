@@ -26,18 +26,28 @@ jobs:
     - name: Install Protoc
       if: runner.os == 'Linux'
       run: |
+        # only run if it's not there
+        if ! command -v protoc &> /dev/null; then
+          echo "protoc is not installed. Installing..."
+        else
+          echo "protoc is already installed. Skipping installation."
+          exit 0
+        fi
+
         sudo apt-get update
         sudo apt-get install -y protobuf-compiler
         protoc --version
 
-    - name: Install Protoc (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew install protobuf
-        protoc --version
-
     - name: Install protoc-gen-go
       run: |
+        # only run if it's not there
+        if ! command -v protoc-gen-go &> /dev/null; then
+          echo "protoc-gen-go is not installed. Installing..."
+        else
+          echo "protoc-gen-go is already installed. Skipping installation."
+          exit 0
+        fi
+
         go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
         go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
