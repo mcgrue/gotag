@@ -75,12 +75,12 @@ jobs:
       working-directory: ./src
       run: go test -v -race -cover ./... -coverprofile=coverage.txt
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./src/coverage.txt
-        flags: unittests
-        fail_ci_if_error: true
+    # - name: Upload coverage to Codecov
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     files: ./src/coverage.txt
+    #     flags: unittests
+    #     fail_ci_if_error: true
 
     - name: Vet
       working-directory: ./src
