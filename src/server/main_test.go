@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net"
+	"regexp"
 	"testing"
 	"time"
 
@@ -29,6 +30,33 @@ func init() {
 
 func bufDialer(context.Context, string) (net.Conn, error) {
 	return lis.Dial()
+}
+
+func TestParseTags(t *testing.T) {
+
+	input := "```json\n"
+	input += "[\n"
+	input += "  \"hunter2\",\n"
+	input += "  \"password\",\n"
+	input += "  \"joke\",\n"
+	input += "  \"security\",\n"
+	input += " \"IRC\"\n"
+	input += "]\n"
+	input += "```\n"
+	input += "\n"
+
+	// print out the strting
+	t.Log(input)
+
+	// using regexp, remove the ```json
+	re := regexp.MustCompile("^```json")
+	cleanedStr := re.ReplaceAllString(input, "$1")
+
+	re2 := regexp.MustCompile("\n```\n")
+	cleanedStr2 := re2.ReplaceAllString(cleanedStr, "$1")
+
+	// print out the strting
+	t.Log(cleanedStr2)
 }
 
 // this is a bad test, but it's a start
