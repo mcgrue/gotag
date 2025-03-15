@@ -36,7 +36,8 @@ type Candidate struct {
 	} `json:"content"`
 }
 
-func NewClient(apiKey string) *Client {
+// Make NewClient variable so it can be replaced in tests
+var NewClient = func(apiKey string) *Client {
 	return &Client{
 		apiKey:     apiKey,
 		baseURL:    "https://generativelanguage.googleapis.com/v1beta",

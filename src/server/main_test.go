@@ -58,6 +58,19 @@ func TestParseTags(t *testing.T) {
 	t.Log(cleanedStr2)
 }
 
+// MockGeminiClient implements the minimal interface needed for testing
+type MockGeminiClient struct {
+	shouldFail bool
+	response   string
+}
+
+func (m *MockGeminiClient) GenerateContent(text string) (string, error) {
+	if m.shouldFail {
+		return "Plain text instead of JSON", nil
+	}
+	return m.response, nil
+}
+
 // this is a bad test, but it's a start
 func TestTagText(t *testing.T) {
 	// Increase timeout to 5 seconds
@@ -75,15 +88,21 @@ func TestTagText(t *testing.T) {
 	client := pb.NewTaggerClient(conn)
 
 	tests := []struct {
-		name    string
-		input   string
-		wantErr bool
+		name         string
+		input        string
+		mockResponse string
+		wantErr      bool
 	}{
 		{
-			name:  "Empty input",
-			input: "",
-			// Empty input should return an error
+			name:    "Empty input",
+			input:   "",
 			wantErr: true,
+		},
+		{
+			name:         "Bad Gemini response",
+			input:        "Some text",
+			mockResponse: "Plain text instead of JSON",
+			wantErr:      true,
 		},
 		{
 			name:    "Single line input",
@@ -99,6 +118,18 @@ func TestTagText(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Override the NewClient function for testing
+			oldNewClient := gemini.NewClient
+			gemini.NewClient = func(apiKey string) *gemini.Client {
+				return &MockGeminiClient{
+					response:   tt.mockResponse,
+					shouldFail: tt.mockResponse == "Plain text instead of JSON",
+				}
+			}
+			defer func() {
+				gemini.NewClient = oldNewClient
+			}()
+
 			req := &pb.UnstructuredText{UnstructuredEntry: tt.input}
 			resp, err := client.TagText(ctx, req)
 
