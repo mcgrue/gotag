@@ -74,6 +74,8 @@ func init() {
 	}
 }
 
+const llm_instructions = "Return ONLY a JSON array of 2-5 tags that describe this text. No other text or formatting.  Do not return tags that refer to generic terms about 'humor', although adjectives pertaining to humor genres are allowed. : \n\n"
+
 // implements tagger.TagText
 func (s *server) TagText(_ context.Context, in *pb.UnstructuredText) (*pb.TagReply, error) {
 	text := in.GetUnstructuredEntry()
@@ -90,7 +92,8 @@ func (s *server) TagText(_ context.Context, in *pb.UnstructuredText) (*pb.TagRep
 	}
 
 	client := gemini.NewClient(apiKey)
-	query := "Return ONLY a JSON array of 2-5 tags that describe this text. No other text or formatting: \n\n" + text
+
+	query := llm_instructions + text
 
 	selectedTagsJsonStr, err := client.GenerateContent(query)
 	if err != nil {
