@@ -51,7 +51,25 @@ func findFile(filename string) (string, error) {
 	return "", fmt.Errorf("file %s not found", filename)
 }
 
+// make a const array of required environment variables
+var requiredEnvVars = []string{"GEMINI_API_KEY"}
+
 func init() {
+	skipDotEnv := false
+
+	// if all required environment variables are already set, skip the .env and print out a warning
+	for _, envVar := range requiredEnvVars {
+		if os.Getenv(envVar) == "" {
+			break
+		}
+		skipDotEnv = true
+	}
+
+	if skipDotEnv {
+		log.Printf("All required env variables are set - skipping .env load.")
+		return
+	}
+
 	pathToDotEnv, err := findFile(".env")
 	if err != nil {
 		log.Fatal(err)
@@ -79,7 +97,7 @@ const llm_instructions = "Return ONLY a JSON array of 2-5 tags that describe thi
 // implements tagger.TagText
 func (s *server) TagText(_ context.Context, in *pb.UnstructuredText) (*pb.TagReply, error) {
 	text := in.GetUnstructuredEntry()
-	log.Printf("Received: %v", text)
+	// log.Printf("Received: %v", text)
 
 	// Check for empty input
 	if strings.TrimSpace(text) == "" {
