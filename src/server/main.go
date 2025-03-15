@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
@@ -18,9 +19,7 @@ import (
 	pb "pingpawn.com/gotag/protos/tagger"
 )
 
-var (
-	port = flag.Int("port", 50051, "The server port")
-)
+var port = flag.Int("port", 50051, "The server port")
 
 // server is used to implement helloworld.GreeterServer.
 type server struct {
@@ -51,7 +50,6 @@ func findFile(filename string) (string, error) {
 }
 
 func init() {
-
 	pathToDotEnv, err := findFile(".env")
 	if err != nil {
 		log.Fatal(err)
@@ -78,51 +76,37 @@ func init() {
 func (s *server) TagText(_ context.Context, in *pb.UnstructuredText) (*pb.TagReply, error) {
 	log.Printf("Received: %v", in.GetUnstructuredEntry())
 
-	// // Shuffle the randomWords slice
-	// for i := len(randomWords) - 1; i > 0; i-- {
-	// 	j := rand.Intn(i + 1)
-	// 	randomWords[i], randomWords[j] = randomWords[j], randomWords[i]
-	// }
-
-	// // Slice 2-5 entries from the shuffled slice
-	// numTags := rand.Intn(4) + 2 // Random number between 2 and 5
-	// selectedTags := randomWords[:numTags]
-
-	// use the gemini client to get the tags
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
-		log.Fatal("TagText GEMINI_API_KEY environment variable not set")
+		return nil, fmt.Errorf("GEMINI_API_KEY environment variable not set")
 	}
 	client := gemini.NewClient(apiKey)
 
-	query := "Please analyze the following text and provide a list of 2-5 tags that best describe the content. The tags should be relevant and concise.  Format the tags as a json array.\n\n\n\n" + in.GetUnstructuredEntry()
+	query := "Return ONLY a JSON array of 2-5 tags that describe this text. No other text or formatting: \n\n" + in.GetUnstructuredEntry()
 
 	selectedTagsJsonStr, err := client.GenerateContent(query)
 	if err != nil {
-		log.Fatalf("could not generate content: %v", err)
+		return nil, fmt.Errorf("could not generate content: %v", err)
 	}
 
-	// using regexp, remove the ```json
-	re := regexp.MustCompile("^```json")
-	cleanedStr := re.ReplaceAllString(selectedTagsJsonStr, "$1")
+	// Clean up the response - remove any markdown formatting
+	cleanedStr := selectedTagsJsonStr
+	// Remove ```json or ``` markers if present
+	re := regexp.MustCompile("(?s)^```(?:json)?\\s*(.+?)```\\s*$")
+	if matches := re.FindStringSubmatch(cleanedStr); len(matches) > 1 {
+		cleanedStr = matches[1]
+	}
 
-	re = regexp.MustCompile("\n```\n")
-	cleanedStr = re.ReplaceAllString(cleanedStr, "$1")
+	// Trim whitespace
+	cleanedStr = strings.TrimSpace(cleanedStr)
 
-	// parse selectedTagsJsonStr as json
-	selectedTags := []string{}
+	// Parse JSON
+	var selectedTags []string
 	if err := json.Unmarshal([]byte(cleanedStr), &selectedTags); err != nil {
-		log.Fatalf("could not unmarshal json: '%v'", err)
-		log.Fatalf("Original response: '%v'", selectedTagsJsonStr)
+		fmt.Fprintf(os.Stderr, "Raw Gemini API response:\n%s\n", selectedTagsJsonStr)
+		return nil, fmt.Errorf("could not unmarshal json: %v", err)
 	}
-	log.Printf("Unmarshalled json: %v", selectedTags)
 
-	// Create the TagReply with the selected tags
-	// reply := &pb.TagReply{
-	// 	Tags: selectedTags,
-	// }
-
-	// set reply to an empty string array
 	return &pb.TagReply{Tags: selectedTags}, nil
 }
 

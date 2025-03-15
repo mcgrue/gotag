@@ -15,9 +15,7 @@ import (
 	pb "pingpawn.com/gotag/protos/tagger"
 )
 
-var (
-	addr = flag.String("addr", "localhost:50051", "the address to connect to")
-)
+var addr = flag.String("addr", "localhost:50051", "the address to connect to")
 
 func readStdin() string {
 	reader := bufio.NewReader(os.Stdin)
