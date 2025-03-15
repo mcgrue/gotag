@@ -9,12 +9,10 @@ service Tagger {
   rpc TagText (UnstructuredText) returns (TagReply) {}
 }
 
-// The request message containing the user's name.
 message UnstructuredText {
   string unstructured_entry = 1;
 }
 
-// The response message containing the greetings
 message TagReply {
   repeated string tags = 1;
 }

@@ -14,6 +14,8 @@ import (
 
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"pingpawn.com/gotag/gemini"
 
 	pb "pingpawn.com/gotag/protos/tagger"
@@ -74,37 +76,39 @@ func init() {
 
 // implements tagger.TagText
 func (s *server) TagText(_ context.Context, in *pb.UnstructuredText) (*pb.TagReply, error) {
-	log.Printf("Received: %v", in.GetUnstructuredEntry())
+	text := in.GetUnstructuredEntry()
+	log.Printf("Received: %v", text)
+
+	// Check for empty input
+	if strings.TrimSpace(text) == "" {
+		return nil, status.Error(codes.InvalidArgument, "empty input")
+	}
 
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
-		return nil, fmt.Errorf("GEMINI_API_KEY environment variable not set")
+		return nil, status.Error(codes.FailedPrecondition, "GEMINI_API_KEY environment variable not set")
 	}
-	client := gemini.NewClient(apiKey)
 
-	query := "Return ONLY a JSON array of 2-5 tags that describe this text. No other text or formatting: \n\n" + in.GetUnstructuredEntry()
+	client := gemini.NewClient(apiKey)
+	query := "Return ONLY a JSON array of 2-5 tags that describe this text. No other text or formatting: \n\n" + text
 
 	selectedTagsJsonStr, err := client.GenerateContent(query)
 	if err != nil {
-		return nil, fmt.Errorf("could not generate content: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to generate content: %v", err)
 	}
 
 	// Clean up the response - remove any markdown formatting
 	cleanedStr := selectedTagsJsonStr
-	// Remove ```json or ``` markers if present
 	re := regexp.MustCompile("(?s)^```(?:json)?\\s*(.+?)```\\s*$")
 	if matches := re.FindStringSubmatch(cleanedStr); len(matches) > 1 {
 		cleanedStr = matches[1]
 	}
-
-	// Trim whitespace
 	cleanedStr = strings.TrimSpace(cleanedStr)
 
-	// Parse JSON
 	var selectedTags []string
 	if err := json.Unmarshal([]byte(cleanedStr), &selectedTags); err != nil {
 		fmt.Fprintf(os.Stderr, "Raw Gemini API response:\n%s\n", selectedTagsJsonStr)
-		return nil, fmt.Errorf("could not unmarshal json: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to parse tags from LLM response: %v", err)
 	}
 
 	return &pb.TagReply{Tags: selectedTags}, nil
